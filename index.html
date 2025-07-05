@@ -1,0 +1,1042 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Typo-mancer ⌨️✨</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.7.77/Tone.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=MedievalSharp&family=IM+Fell+English+SC&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'IM Fell English SC', serif;
+            background-image: url('https://www.transparenttextures.com/patterns/crissxcross.png'), url('https://www.transparenttextures.com/patterns/skulls.png');
+            background-color: #2a2a2a;
+        }
+        .font-magic {
+            font-family: 'MedievalSharp', cursive;
+        }
+        .rpg-ui-container {
+            background-image: url('https://www.transparenttextures.com/patterns/worn-dots.png');
+            background-color: rgba(20, 10, 0, 0.7);
+            border: 3px solid #6b4f3a;
+            border-image: url('data:image/svg+xml;charset=utf-8,%3Csvg width="100" height="100" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg"%3E%3Cstyle%3Epath%7Bstroke:%23855d3c;stroke-width:5%3B%7D%3C/style%3E%3Cpath d="M0 2.5h100M2.5 0v100M100 97.5H0M97.5 100V0"/%3E%3C/svg%3E') 10 stretch;
+            box-shadow: 0 0 30px rgba(0,0,0,0.8);
+        }
+        .text-shadow-title {
+            filter: drop-shadow(0 0 8px rgba(255, 200, 150, 0.6)) drop-shadow(0 0 15px rgba(255, 100, 50, 0.5));
+        }
+        .text-shadow-enemy {
+            filter: drop-shadow(0 0 6px rgba(150, 255, 150, 0.7)) drop-shadow(0 0 10px rgba(100, 255, 100, 0.5));
+        }
+        .text-shadow-boss {
+            filter: drop-shadow(0 0 8px rgba(255, 100, 255, 0.8)) drop-shadow(0 0 15px rgba(200, 100, 255, 0.6));
+        }
+        #spellInput {
+            background-color: rgba(0,0,0,0.3);
+            border: 2px solid #6b4f3a;
+            caret-color: #ffb86c;
+        }
+        #spellInput:focus {
+            border-color: #ffb86c;
+            box-shadow: 0 0 10px rgba(255, 184, 108, 0.5);
+        }
+        .feedback-correct { color: #a1e8a1; }
+        .feedback-wrong { color: #ff8a8a; text-decoration: line-through; }
+        .feedback-armor { color: #a0e0ff; }
+        
+        .rpg-bar > div {
+            transition: width 0.4s ease-in-out;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.7);
+        }
+
+        .enemy-spawn-animation { animation: enemy-spawn 0.5s ease-out; }
+        @keyframes enemy-spawn {
+            from { transform: scale(0.5) rotate(-15deg); opacity: 0; }
+            to { transform: scale(1) rotate(0deg); opacity: 1; }
+        }
+        .enemy-damage-animation { animation: shake 0.5s; }
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-10px) rotate(-2deg); }
+            75% { transform: translateX(10px) rotate(2deg); }
+        }
+        .enemy-death-animation { animation: enemy-death 0.5s ease-out forwards; }
+        @keyframes enemy-death {
+            from { transform: scale(1) rotate(0deg); opacity: 1; }
+            to { transform: scale(0.8) rotate(10deg); opacity: 0; }
+        }
+        .rpg-button {
+             background-color: #855d3c;
+             border: 2px solid #5a3f2a;
+             transition: all 0.2s ease-in-out;
+        }
+        .rpg-button:hover:not(:disabled) {
+            background-color: #a16f4a;
+            transform: scale(1.05);
+            box-shadow: 0 0 15px rgba(255, 184, 108, 0.4);
+        }
+        .rpg-button:disabled {
+            background-color: #4a3f3a;
+            cursor: not-allowed;
+            opacity: 0.6;
+        }
+        .perk-card, .tome-entry, .skill-card {
+            background-color: rgba(0,0,0,0.4);
+            border: 2px solid #855d3c;
+            transition: all 0.2s ease-in-out;
+        }
+        .perk-card, .skill-card { cursor: pointer; }
+        .perk-card:hover, .skill-card:hover:not(.maxed) {
+            background-color: rgba(255, 184, 108, 0.2);
+            border-color: #ffb86c;
+            transform: translateY(-5px);
+        }
+        .skill-card.maxed {
+            background-color: rgba(100, 100, 100, 0.2);
+            border-color: #555;
+            cursor: default;
+        }
+        .hit-text {
+            position: absolute; top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 2.5rem;
+            font-family: 'MedievalSharp', cursive;
+            animation: crit-fade 1s ease-out forwards;
+            pointer-events: none;
+        }
+        .critical-hit-text { color: #ffdd00; text-shadow: 0 0 10px #ff0000, 0 0 15px #ff0000; }
+        .super-effective-text { color: #6ee7b7; text-shadow: 0 0 10px #00ff88; }
+        .resisted-text { color: #f87171; text-shadow: 0 0 10px #ff0000; }
+        @keyframes crit-fade {
+            from { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+            to { opacity: 0; transform: translate(-50%, -150%) scale(1.2); }
+        }
+        .particle {
+            position: absolute; background-color: var(--color);
+            border-radius: 2px; pointer-events: none;
+            opacity: 0; animation: shoot-and-fade 0.8s ease-out forwards;
+        }
+        @keyframes shoot-and-fade {
+            0% { transform: translate(var(--tx), var(--ty)) scale(1); opacity: 1; }
+            100% { transform: translate(0, -150px) scale(0.5); opacity: 0; }
+        }
+        .ability-text { font-size: 0.9rem; color: #6ee7b7; }
+        .cursed-text span {
+            display: inline-block;
+            animation: curse-jumble 0.5s ease-in-out;
+        }
+        @keyframes curse-jumble {
+            0%, 100% { transform: translateY(0) rotate(0); }
+            50% { transform: translateY(-5px) rotate(10deg); }
+        }
+        #comboMeterBar {
+            box-shadow: 0 0 10px rgba(255, 255, 100, 0);
+            transition: all 0.3s ease-in-out;
+        }
+        #comboMeterBar.full {
+            box-shadow: 0 0 15px rgba(255, 255, 100, 0.8);
+            animation: pulse 1.5s infinite;
+        }
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+        .element-icon { font-size: 1.2rem; vertical-align: middle; }
+    </style>
+</head>
+<body class="text-amber-100 flex flex-col items-center justify-center min-h-screen p-4">
+
+    <div class="w-full max-w-4xl mx-auto relative">
+        <!-- Main Menu -->
+        <div id="mainMenu" class="rpg-ui-container p-8 text-center">
+            <h1 class="text-6xl md:text-7xl font-magic text-shadow-title text-amber-300">Typo-mancer</h1>
+            <p class="mt-4 text-xl text-amber-200">The fate of the realm is at your fingertips.</p>
+            <div class="flex flex-wrap justify-center gap-4 mt-8">
+                <button id="startGameButton" class="rpg-button text-white font-bold py-3 px-6 rounded-lg text-2xl">Begin Quest</button>
+                <button id="endlessButton" class="rpg-button text-white font-bold py-3 px-6 rounded-lg text-2xl hidden">Endless Dungeon</button>
+                <button id="athenaeumButton" class="rpg-button text-white font-bold py-3 px-6 rounded-lg text-2xl">Athenaeum</button>
+                <button id="tomeButton" class="rpg-button text-white font-bold py-3 px-6 rounded-lg text-2xl">Tome</button>
+            </div>
+            <div class="mt-6 text-amber-200">
+                <p><span class="font-bold">High Score:</span> <span id="highScoreDisplay">0</span></p>
+                <p><span class="font-bold">Highest Wave (Endless):</span> <span id="highestWaveDisplay">0</span></p>
+                <p><span class="font-bold">Arcane Essence:</span> <span id="essenceDisplay">0</span> ✨</p>
+            </div>
+        </div>
+
+        <!-- Game Container -->
+        <div id="gameContainer" class="rpg-ui-container p-6 md:p-8 hidden"></div>
+        
+        <!-- Overlay Screens -->
+        <div id="overlay" class="absolute inset-0 bg-black bg-opacity-80 flex-col items-center justify-center rounded-2xl hidden z-20 p-4">
+            <h2 id="overlayTitle" class="text-5xl md:text-6xl font-magic text-shadow-title"></h2>
+            <div id="perkSelection" class="hidden w-full p-4"><div id="perkGrid" class="grid grid-cols-1 md:grid-cols-3 gap-4"></div></div>
+            <div id="tomeScreen" class="hidden w-full h-[80vh] overflow-y-auto p-4"><div id="tomeGrid" class="grid grid-cols-2 md:grid-cols-4 gap-4"></div></div>
+            <div id="athenaeumScreen" class="hidden w-full h-[80vh] overflow-y-auto p-4"><div id="athenaeumGrid" class="grid grid-cols-2 md:grid-cols-4 gap-4"></div></div>
+            <p id="overlayText" class="text-2xl mt-4 text-white"></p>
+            <p id="finalScoreText" class="text-xl mt-2 text-amber-200"></p>
+            <button id="overlayButton" class="rpg-button text-white font-bold py-3 px-8 rounded-lg text-2xl mt-8"></button>
+        </div>
+    </div>
+
+    <script>
+        // --- DOM Elements ---
+        const mainMenu = document.getElementById('mainMenu');
+        const startGameButton = document.getElementById('startGameButton');
+        const endlessButton = document.getElementById('endlessButton');
+        const tomeButton = document.getElementById('tomeButton');
+        const athenaeumButton = document.getElementById('athenaeumButton');
+        const highScoreDisplay = document.getElementById('highScoreDisplay');
+        const highestWaveDisplay = document.getElementById('highestWaveDisplay');
+        const essenceDisplay = document.getElementById('essenceDisplay');
+        const gameContainer = document.getElementById('gameContainer');
+        const overlay = document.getElementById('overlay');
+        const overlayTitle = document.getElementById('overlayTitle');
+        const overlayText = document.getElementById('overlayText');
+        const finalScoreText = document.getElementById('finalScoreText');
+        const overlayButton = document.getElementById('overlayButton');
+        const perkSelection = document.getElementById('perkSelection');
+        const perkGrid = document.getElementById('perkGrid');
+        const tomeScreen = document.getElementById('tomeScreen');
+        const tomeGrid = document.getElementById('tomeGrid');
+        const athenaeumScreen = document.getElementById('athenaeumScreen');
+        const athenaeumGrid = document.getElementById('athenaeumGrid');
+        
+        let spellInput, enemyWordEl, enemyNameEl, enemyHealthBar, enemyAvatarEl, playerHealthEl, scoreEl, typedOutputEl, fxContainer, enemyContainer, wordTimerBar, stageNameEl, enemiesRemainingEl, potionsEl, enemyAbilityEl, timeWarpEl, fireballEl, comboMeterBar;
+
+        // --- Game State ---
+        let playerHealth, score, currentStage, enemiesDefeatedInStage, currentEnemy, gameActive, wordTimerInterval, timeElapsedOnWord, highScore, highestWave, potions, timeWarpScrolls, fireballScrolls, comboMeter, arcaneEssence;
+        let playerPerks = {}, permanentUpgrades = {};
+        let defeatedEnemies = new Set();
+        let isCursed = false;
+        let gameMode = 'quest'; // 'quest' or 'endless'
+
+        // --- Audio Engine ---
+        let sfx;
+        const setupAudio = () => {
+             if (sfx) return;
+            sfx = {
+                synth: new Tone.Synth().toDestination(),
+                pluck: new Tone.PluckSynth().toDestination(),
+                metal: new Tone.MetalSynth({ frequency: 150, envelope: { attack: 0.01, decay: 0.1, release: 0.1 }, harmonicity: 3.1, modulationIndex: 32, resonance: 4000, octaves: 1.5 }).toDestination(),
+                noise: new Tone.NoiseSynth({ noise: { type: 'brown' }, envelope: { attack: 0.005, decay: 0.1, sustain: 0 } }).toDestination(),
+                potion: new Tone.PluckSynth({ resonance: 0.9, dampening: 8000 }).toDestination(),
+                scroll: new Tone.MembraneSynth().toDestination(),
+                overload: new Tone.FMSynth({ harmonicity: 3.01, modulationIndex: 14, detune: 0, oscillator: { type: "sine" }, envelope: { attack: 0.01, decay: 0.5, sustain: 0.1, release: 1 }, modulation: { type: "square" }, modulationEnvelope: { attack: 0.01, decay: 0.5, sustain: 0.3, release: 1 } }).toDestination(),
+            };
+            sfx.metal.volume.value = -15;
+            sfx.pluck.volume.value = -5;
+            sfx.potion.volume.value = -3;
+            sfx.scroll.volume.value = -10;
+            sfx.overload.volume.value = -5;
+        };
+
+        const playSound = (sound) => {
+            if (!sfx) return;
+            try {
+                switch (sound) {
+                    case 'type': sfx.pluck.triggerAttack("C3"); break;
+                    case 'error': sfx.pluck.triggerAttack("C2"); break;
+                    case 'cast': sfx.synth.triggerAttackRelease("C4", "8n"); break;
+                    case 'crit': sfx.synth.triggerAttackRelease("G5", "8n", Tone.now(), 1.5); break;
+                    case 'armor_break': sfx.metal.triggerAttack(); break;
+                    case 'death': sfx.noise.triggerAttackRelease("0.5"); break;
+                    case 'playerHit': sfx.synth.triggerAttackRelease("A2", "8n"); break;
+                    case 'potion': sfx.potion.triggerAttack("G4"); setTimeout(() => sfx.potion.triggerAttack("C5"), 100); break;
+                    case 'scroll': sfx.scroll.triggerAttackRelease("C2", "8n"); break;
+                    case 'overload': sfx.overload.triggerAttackRelease("C3", "1s"); break;
+                }
+            } catch (e) { console.error("Audio error:", e); }
+        };
+
+        // --- Game Content ---
+        const ELEMENTS = {
+            FIRE: { name: 'Fire', icon: '🔥', weakness: 'FROST' },
+            FROST: { name: 'Frost', icon: '❄️', weakness: 'EARTH' },
+            EARTH: { name: 'Earth', icon: '🌍', weakness: 'STORM' },
+            STORM: { name: 'Storm', icon: '⚡️', weakness: 'FIRE' },
+            PHYSICAL: { name: 'Physical', icon: '' }
+        };
+        const PERK_CATALOG = {
+            fortitude: { id: 'fortitude', name: "Fortitude", description: "Gain +1 Max Health.", apply: (state) => { state.playerHealth++; } },
+            sharpenedMind: { id: 'sharpenedMind', name: "Sharpened Mind", description: "Your spells deal 20% more damage.", apply: (state) => { state.playerPerks.damageMultiplier = (state.playerPerks.damageMultiplier || 1) * 1.2; } },
+            temporalGrace: { id: 'temporalGrace', name: "Temporal Grace", description: "Gain 25% more time to type each word.", apply: (state) => { state.playerPerks.timeMultiplier = (state.playerPerks.timeMultiplier || 1) * 1.25; } },
+            vampiricWords: { id: 'vampiricWords', name: "Vampiric Words", description: "15% chance to heal 1 HP on enemy defeat.", apply: (state) => { state.playerPerks.vampirism = 0.15; } },
+            criticalFocus: { id: 'criticalFocus', name: "Critical Focus", description: "Critical Hits deal 50% more bonus damage.", apply: (state) => { state.playerPerks.critMultiplier = (state.playerPerks.critMultiplier || 1.5) * 1.5; } },
+            alchemistsLuck: { id: 'alchemistsLuck', name: "Alchemist's Luck", description: "25% chance to find a Healing Potion after clearing a stage.", apply: (state) => { state.playerPerks.potionChance = 0.25; } },
+            scrollScrounger: { id: 'scrollScrounger', name: "Scroll Scrounger", description: "30% chance to find a random scroll after clearing a stage.", apply: (state) => { state.playerPerks.scrollChance = 0.3; } },
+            comboMaster: { id: 'comboMaster', name: "Combo Master", description: "Arcane Overload charges 25% faster.", apply: (state) => { state.playerPerks.comboMultiplier = (state.playerPerks.comboMultiplier || 1) * 1.25; } },
+            overloadPotency: { id: 'overloadPotency', name: "Overload Potency", description: "Arcane Overload deals 50% more damage.", apply: (state) => { state.playerPerks.overloadMultiplier = (state.playerPerks.overloadMultiplier || 1) * 1.5; } },
+            elementalAttunement: { id: 'elementalAttunement', name: "Elemental Attunement", description: "Exploiting elemental weaknesses deals 50% more bonus damage.", apply: (state) => { state.playerPerks.weaknessMultiplier = (state.playerPerks.weaknessMultiplier || 1.5) * 1.5; } },
+        };
+        const PERMANENT_UPGRADES = {
+            startingHealth: { id: 'startingHealth', name: "Endurance Training", description: "Start every quest with +1 max health.", maxLevel: 2, cost: (level) => 100 * Math.pow(2, level) },
+            startingPotion: { id: 'startingPotion', name: "Alchemical Preparation", description: "Start every quest with +1 healing potion.", maxLevel: 2, cost: (level) => 150 * Math.pow(2, level) },
+            essenceCollector: { id: 'essenceCollector', name: "Essence Collector", description: "Gain 10% more Arcane Essence from all sources.", maxLevel: 5, cost: (level) => 75 * Math.pow(2, level) },
+            baseDamage: { id: 'baseDamage', name: "Runic Power", description: "Permanently increase all damage by 5%.", maxLevel: 5, cost: (level) => 125 * Math.pow(2, level) },
+        };
+        const ENEMY_CATALOG = {
+            goblin: { id: 'goblin', name: "Goblin Grunt", svg: `<svg viewBox="0 0 100 100" fill="currentColor"><path d="M50 20 C 30 20, 20 40, 20 50 C 20 80, 40 90, 50 90 C 60 90, 80 80, 80 50 C 80 40, 70 20, 50 20 Z M 35 45 L 45 55 M 45 45 L 35 55 M 65 45 L 75 55 M 75 45 L 65 55 M 30 75 Q 50 65, 70 75" stroke="currentColor" stroke-width="4" fill="none" /></svg>`, element: 'EARTH' },
+            imp: { id: 'imp', name: "Fiery Imp", svg: `<svg viewBox="0 0 100 100" fill="currentColor"><path d="M20 90 C 20 70, 30 60, 50 60 C 70 60, 80 70, 80 90 Z M 30 20 Q 20 40, 35 50 M 70 20 Q 80 40, 65 50 M 40 70 a 5 5 0 1 1 0 0.1 M 60 70 a 5 5 0 1 1 0 0.1" stroke="currentColor" stroke-width="4" fill="none" /></svg>`, ability: "regenerating", element: 'FIRE' },
+            golem: { id: 'golem', name: "Stone Golem", svg: `<svg viewBox="0 0 100 100" fill="currentColor"><rect x="20" y="20" width="60" height="60" rx="5" /><rect x="30" y="5" width="40" height="20" rx="5" /><rect x="10" y="40" width="20" height="40" rx="5" /><rect x="70" y="40" width="20" height="40" rx="5" /></svg>`, ability: "armored", element: 'EARTH' },
+            spider: { id: 'spider', name: "Gloom Weaver", svg: `<svg viewBox="0 0 100 100" fill="currentColor"><path d="M50 30 a 15 15 0 1 1 0 0.1 M50 55 a 20 20 0 1 1 0 0.1 M50 30 l -20 -20 m 20 -20 l 20 20 m-20 20 l -30 0 m 30 0 l 30 0 m-30 0 l -25 25 m 25 -25 l 25 25" stroke="currentColor" stroke-width="4" fill="none" /></svg>`, element: 'PHYSICAL' },
+            wisp: { id: 'wisp', name: "Cursed Wisp", svg: `<svg viewBox="0 0 100 100" fill="currentColor"><path d="M 50 50 m -20, 0 a 20,20 0 1,0 40,0 a 20,20 0 1,0 -40,0" stroke="currentColor" stroke-width="4" fill="none" /><path d="M 50 50 m -10, 0 a 10,10 0 1,0 20,0 a 10,10 0 1,0 -20,0" fill="currentColor" /></svg>`, ability: "cursed", element: 'STORM' },
+            lich: { id: 'lich', name: "Lich Lord", svg: `<svg viewBox="0 0 100 100" fill="currentColor"><path d="M50 10 a 15 15 0 1 1 0 0.1 M30 30 l 40 0 l 0 50 l -40 0 Z M20 90 l 60 0 M50 30 v -10 M40 20 l -15 -10 M60 20 l 15 -10" stroke="currentColor" stroke-width="5" fill="none" /></svg>`, isBoss: true, element: 'FROST' },
+            crystal_golem: { id: 'crystal_golem', name: "Crystal Golem", svg: `<svg viewBox="0 0 100 100" fill="currentColor"><path d="M50 10 L80 40 L50 90 L20 40 Z M50 10 L50 90 M20 40 L80 40" stroke="currentColor" stroke-width="4" fill="none" /></svg>`, ability: "armored", element: 'EARTH' },
+            crystal_tyrant: { id: 'crystal_tyrant', name: "Crystal Tyrant", svg: `<svg viewBox="0 0 100 100" fill="currentColor"><path d="M50 5 L20 30 L30 95 L70 95 L80 30 Z M20 30 L80 30 M35 50 L65 50 M40 70 L60 70 M50 5 L 50 30" stroke="currentColor" stroke-width="4" fill="none" /></svg>`, isBoss: true, element: 'EARTH' },
+            serpent: { id: 'serpent', name: "Abyssal Serpent", svg: `<svg viewBox="0 0 100 100" fill="currentColor"><path d="M 20 80 Q 40 20, 60 50 T 80 20" stroke="currentColor" stroke-width="6" fill="none" /></svg>`, element: 'FROST' },
+            leviathan: { id: 'leviathan', name: "Abyssal Leviathan", svg: `<svg viewBox="0 0 100 100" fill="currentColor"><path d="M 10 50 Q 30 10, 50 50 T 90 50 M 50 50 L 50 70 L 40 90 M 60 90 L 50 70" stroke="currentColor" stroke-width="5" fill="none" /><circle cx="40" cy="40" r="3"/><circle cx="60" cy="40" r="3"/></svg>`, isBoss: true, element: 'FROST' },
+            fire_elemental: { id: 'fire_elemental', name: "Fire Elemental", svg: `<svg viewBox="0 0 100 100" fill="currentColor"><path d="M 50 90 Q 20 70, 50 50 Q 80 70, 50 90 Z M 50 50 Q 40 30, 50 10 Q 60 30, 50 50 Z" stroke="currentColor" stroke-width="4" fill="none" /></svg>`, ability: "regenerating", element: 'FIRE' },
+            inferno_overlord: { id: 'inferno_overlord', name: "Inferno Overlord", svg: `<svg viewBox="0 0 100 100" fill="currentColor"><path d="M 20 90 L 80 90 L 50 20 Z M 30 90 Q 50 70, 70 90" stroke="currentColor" stroke-width="5" fill="none" /><circle cx="50" cy="50" r="10" /></svg>`, isBoss: true, element: 'FIRE' },
+        };
+        const SPELL_WORDS = {
+            easy: [{w:'wraith',e:'PHYSICAL'}, {w:'curse',e:'PHYSICAL'}, {w:'gloom',e:'PHYSICAL'}, {w:'fear',e:'PHYSICAL'}, {w:'dread',e:'PHYSICAL'}],
+            medium: [{w:'phantom',e:'PHYSICAL'}, {w:'specter',e:'PHYSICAL'}, {w:'banshee',e:'PHYSICAL'}, {w:'malice',e:'PHYSICAL'}],
+            hard: [{w:'poltergeist',e:'PHYSICAL'}, {w:'nightmare',e:'PHYSICAL'}, {w:'affliction',e:'PHYSICAL'}, {w:'corruption',e:'PHYSICAL'}],
+            crystal: [{w:'shard',e:'EARTH'}, {w:'prism',e:'EARTH'}, {w:'shine',e:'STORM'}, {w:'gleam',e:'STORM'}, {w:'fracture',e:'EARTH'}],
+            water: [{w:'drown',e:'FROST'}, {w:'depths',e:'FROST'}, {w:'tide',e:'FROST'}, {w:'abyss',e:'FROST'}],
+            fire: [{w:'ember',e:'FIRE'}, {w:'scorch',e:'FIRE'}, {w:'blaze',e:'FIRE'}, {w:'inferno',e:'FIRE'}],
+            armor: [{w:'break',e:'PHYSICAL'}, {w:'crack',e:'PHYSICAL'}, {w:'smash',e:'PHYSICAL'}, {w:'shatter',e:'PHYSICAL'}],
+            boss_lich: [{w:'darkness',e:'PHYSICAL'}, {w:'descends',e:'PHYSICAL'}, {w:'upon',e:'PHYSICAL'}, {w:'this',e:'PHYSICAL'}, {w:'realm',e:'PHYSICAL'}],
+            boss_crystal: [{w:'your',e:'PHYSICAL'}, {w:'light',e:'STORM'}, {w:'will',e:'PHYSICAL'}, {w:'be',e:'PHYSICAL'}, {w:'extinguished',e:'PHYSICAL'}],
+            boss_leviathan: [{w:'from',e:'PHYSICAL'}, {w:'the',e:'FROST'}, {w:'depths',e:'FROST'}, {w:'i',e:'PHYSICAL'}, {w:'rise',e:'PHYSICAL'}],
+            boss_inferno: [{w:'creation',e:'PHYSICAL'}, {w:'will',e:'FIRE'}, {w:'be',e:'PHYSICAL'}, {w:'unmade',e:'FIRE'}, {w:'by',e:'PHYSICAL'}, {w:'fire',e:'FIRE'}],
+        };
+        const STAGE_CONFIG = {
+            1: { name: "The Decrepit Crypt", enemiesToDefeat: 3, words: SPELL_WORDS.easy, enemyTypes: ['goblin', 'spider'] },
+            2: { name: "The Ashen Golem Pits", enemiesToDefeat: 4, words: SPELL_WORDS.medium, enemyTypes: ['imp', 'golem'] },
+            3: { name: "The Lich's Antechamber", enemiesToDefeat: 1, isBossStage: true, bossType: 'lich', bossChant: SPELL_WORDS.boss_lich },
+            4: { name: "The Crystal Spires", enemiesToDefeat: 5, words: SPELL_WORDS.crystal, enemyTypes: ['wisp', 'crystal_golem'] },
+            5: { name: "The Crystal Heart", enemiesToDefeat: 1, isBossStage: true, bossType: 'crystal_tyrant', bossChant: SPELL_WORDS.boss_crystal },
+            6: { name: "The Sunken Grotto", enemiesToDefeat: 6, words: SPELL_WORDS.water, enemyTypes: ['serpent', 'wisp'] },
+            7: { name: "The Leviathan's Maw", enemiesToDefeat: 1, isBossStage: true, bossType: 'leviathan', bossChant: SPELL_WORDS.boss_leviathan },
+            8: { name: "The Ashen Volcano", enemiesToDefeat: 7, words: SPELL_WORDS.fire, enemyTypes: ['imp', 'fire_elemental'] },
+            9: { name: "The Inferno's Core", enemiesToDefeat: 1, isBossStage: true, bossType: 'inferno_overlord', bossChant: SPELL_WORDS.boss_inferno },
+            10: { name: "The Void Chasm", enemiesToDefeat: 8, words: SPELL_WORDS.hard, enemyTypes: ['wisp', 'spider', 'imp'] },
+        };
+
+        // ... (The rest of the script is very long, so it's truncated for brevity, but the logic is all there)
+        // The full implementation of all classes, functions, and event listeners follows,
+        // including the new logic for Endless Mode, Permanent Upgrades, and Elemental Affinities.
+        // The structure remains similar to the previous version, but with these new systems integrated.
+        
+        // --- Game Logic ---
+        class Enemy {
+            constructor(data) {
+                this.id = data.id;
+                this.name = data.name;
+                this.svg = data.svg;
+                this.isBoss = data.isBoss || false;
+                this.ability = data.ability;
+                this.element = data.element;
+                
+                if (this.isBoss) {
+                    this.chant = data.chant;
+                    this.chantIndex = 0;
+                    this.word = this.chant[this.chantIndex].w;
+                    this.wordElement = this.chant[this.chantIndex].e;
+                    this.maxHealth = this.chant.reduce((sum, word) => sum + word.w.length * 20, 0);
+                } else {
+                    this.word = data.word.w;
+                    this.wordElement = data.word.e;
+                    this.maxHealth = data.word.w.length * 15;
+                }
+                this.currentHealth = this.maxHealth;
+
+                this.state = {};
+                if (this.ability === 'armored') {
+                    this.state.armorWord = SPELL_WORDS.armor[Math.floor(Math.random() * SPELL_WORDS.armor.length)].w;
+                    this.state.isArmored = true;
+                }
+            }
+            takeDamage(amount) {
+                this.currentHealth = Math.max(0, this.currentHealth - amount);
+                this.updateHealthBar();
+                enemyContainer.classList.add('enemy-damage-animation');
+                setTimeout(() => enemyContainer.classList.remove('enemy-damage-animation'), 500);
+            }
+            updateHealthBar() {
+                enemyHealthBar.style.width = `${(this.currentHealth / this.maxHealth) * 100}%`;
+            }
+            getDisplayWord() {
+                if (this.ability === 'armored' && this.state.isArmored) {
+                    return this.state.armorWord;
+                }
+                return this.word;
+            }
+        }
+
+        function spawnNewEnemy() {
+            if (!gameActive) return;
+            let enemyData;
+
+            if (gameMode === 'endless') {
+                const wave = currentStage;
+                const wordList = wave > 10 ? SPELL_WORDS.hard : (wave > 5 ? SPELL_WORDS.medium : SPELL_WORDS.easy);
+                const randomWord = wordList[Math.floor(Math.random() * wordList.length)];
+                const enemyTypes = Object.keys(ENEMY_CATALOG).filter(k => !ENEMY_CATALOG[k].isBoss);
+                const randomEnemyTypeKey = enemyTypes[Math.floor(Math.random() * enemyTypes.length)];
+                enemyData = { ...ENEMY_CATALOG[randomEnemyTypeKey], word: randomWord };
+                enemyData.maxHealth *= (1 + wave * 0.1); // Scale health in endless
+            } else {
+                const stageConf = STAGE_CONFIG[currentStage];
+                if (stageConf.isBossStage) {
+                    enemyData = { ...ENEMY_CATALOG[stageConf.bossType], chant: stageConf.bossChant };
+                } else {
+                    const randomWord = stageConf.words[Math.floor(Math.random() * stageConf.words.length)];
+                    const randomEnemyTypeKey = stageConf.enemyTypes[Math.floor(Math.random() * stageConf.enemyTypes.length)];
+                    enemyData = { ...ENEMY_CATALOG[randomEnemyTypeKey], word: randomWord };
+                }
+            }
+            
+            currentEnemy = new Enemy(enemyData);
+            
+            enemyNameEl.textContent = currentEnemy.name;
+            enemyAvatarEl.innerHTML = currentEnemy.svg + `<span class="element-icon">${ELEMENTS[currentEnemy.element].icon}</span>`;
+            enemyAvatarEl.className = `w-24 h-24 mx-auto mb-2 ${currentEnemy.isBoss ? 'text-purple-400' : 'text-green-300'}`;
+            enemyAvatarEl.classList.add('enemy-spawn-animation');
+            enemyWordEl.className = `text-4xl md:text-5xl font-bold tracking-widest ${currentEnemy.isBoss ? 'text-shadow-boss' : 'text-shadow-enemy'}`;
+
+            currentEnemy.updateHealthBar();
+            spellInput.value = '';
+            updateTypedOutput('');
+            startWordTimer();
+            updateUI();
+        }
+
+        function startWordTimer(speedMultiplier = 1) {
+            clearInterval(wordTimerInterval);
+            const timeMultiplier = playerPerks.timeMultiplier || 1;
+            const word = currentEnemy.getDisplayWord();
+            let timeLimit = word.length * 800 * timeMultiplier * speedMultiplier;
+            if (gameMode === 'endless') timeLimit /= (1 + currentStage * 0.05); // Faster timer in endless
+            let timeRemaining = timeLimit;
+            timeElapsedOnWord = 0;
+
+            wordTimerInterval = setInterval(() => {
+                if (!gameActive) { clearInterval(wordTimerInterval); return; }
+                timeRemaining -= 100;
+                timeElapsedOnWord += 100;
+                
+                if (currentEnemy.ability === 'regenerating' && currentEnemy.currentHealth < currentEnemy.maxHealth) {
+                    currentEnemy.currentHealth = Math.min(currentEnemy.maxHealth, currentEnemy.currentHealth + currentEnemy.maxHealth * 0.005);
+                    currentEnemy.updateHealthBar();
+                }
+
+                wordTimerBar.style.width = `${Math.max(0, (timeRemaining / timeLimit) * 100)}%`;
+                if (timeRemaining <= 0) {
+                    clearInterval(wordTimerInterval);
+                    takeDamage();
+                    if (gameActive) spawnNewEnemy();
+                }
+            }, 100);
+        }
+        
+        function castSpell(isOverload = false) {
+            if (!isOverload) clearInterval(wordTimerInterval);
+            const displayWord = currentEnemy.getDisplayWord();
+
+            if (currentEnemy.ability === 'armored' && currentEnemy.state.isArmored) {
+                currentEnemy.state.isArmored = false;
+                playSound('armor_break');
+                spellInput.value = '';
+                updateTypedOutput('');
+                startWordTimer();
+                updateUI();
+                return;
+            }
+
+            let damage;
+            if (currentEnemy.isBoss) {
+                damage = displayWord.length * 5; 
+            } else {
+                damage = currentEnemy.maxHealth;
+            }
+
+            damage *= (playerPerks.damageMultiplier || 1);
+            damage *= (1 + (permanentUpgrades.baseDamage || 0) * 0.05); // Permanent upgrade damage
+
+            // Elemental check
+            const wordElement = currentEnemy.wordElement;
+            const enemyElement = currentEnemy.element;
+            if (ELEMENTS[wordElement] && ELEMENTS[enemyElement] && ELEMENTS[wordElement].weakness === enemyElement) {
+                damage *= (playerPerks.weaknessMultiplier || 1.5);
+                showHitText('Super Effective!', 'super-effective-text');
+            } else if (wordElement === enemyElement && wordElement !== 'PHYSICAL') {
+                damage *= 0.75;
+                showHitText('Resisted!', 'resisted-text');
+            }
+
+            if (isOverload) {
+                damage *= (playerPerks.overloadMultiplier || 1);
+            } else {
+                const critTime = displayWord.length * 400;
+                if (timeElapsedOnWord <= critTime) {
+                    damage *= (playerPerks.critMultiplier || 1.5);
+                    showHitText('CRITICAL!', 'critical-hit-text');
+                    playSound('crit');
+                } else {
+                    playSound('cast');
+                }
+            }
+
+            currentEnemy.takeDamage(damage);
+            createParticles(wordElement);
+
+            if (currentEnemy.currentHealth <= 0) {
+                handleEnemyDefeat();
+                return;
+            }
+            
+            if (currentEnemy.isBoss) {
+                currentEnemy.chantIndex++;
+                if (currentEnemy.chantIndex < currentEnemy.chant.length) {
+                    currentEnemy.word = currentEnemy.chant[currentEnemy.chantIndex].w;
+                    currentEnemy.wordElement = currentEnemy.chant[currentEnemy.chantIndex].e;
+                    spellInput.value = '';
+                    updateTypedOutput('');
+                    startWordTimer();
+                    updateUI();
+                } else {
+                    handleEnemyDefeat();
+                }
+            }
+        }
+
+        function handleEnemyDefeat() {
+            playSound('death');
+            score += currentEnemy.maxHealth;
+            enemiesDefeatedInStage++;
+            defeatedEnemies.add(currentEnemy.id);
+            localStorage.setItem('typoMancerDefeated', JSON.stringify(Array.from(defeatedEnemies)));
+            
+            if (playerPerks.vampirism && Math.random() < playerPerks.vampirism) {
+                playerHealth = Math.min(5 + (permanentUpgrades.startingHealth || 0), playerHealth + 1);
+            }
+            
+            enemyAvatarEl.classList.add('enemy-death-animation');
+            setTimeout(() => {
+                if (gameMode === 'endless') {
+                    currentStage++; // Increment wave
+                    if (currentStage % 3 === 1 && currentStage > 1) { // Perk every 3 waves
+                        showStageClear();
+                    } else {
+                        spawnNewEnemy();
+                    }
+                } else {
+                    const stageConf = STAGE_CONFIG[currentStage];
+                    if (enemiesDefeatedInStage >= stageConf.enemiesToDefeat) {
+                        showStageClear();
+                    } else {
+                        spawnNewEnemy();
+                    }
+                }
+                updateUI();
+            }, 500);
+        }
+        
+        function takeDamage() {
+            if (!gameActive) return;
+            playSound('playerHit');
+            comboMeter = 0;
+            playerHealth--;
+            updateUI();
+            if (playerHealth <= 0) {
+                showGameOver();
+            } else {
+                gameContainer.style.borderColor = '#ef4444';
+                setTimeout(() => gameContainer.style.borderColor = '#6b4f3a', 200);
+            }
+        }
+
+        function usePotion() {
+            if (potions > 0 && playerHealth < (5 + (permanentUpgrades.startingHealth || 0))) {
+                playSound('potion');
+                potions--;
+                playerHealth++;
+                updateUI();
+            }
+        }
+
+        function useTimeWarp() {
+            if (timeWarpScrolls > 0) {
+                playSound('scroll');
+                timeWarpScrolls--;
+                startWordTimer(2);
+                updateUI();
+            }
+        }
+
+        function useFireball() {
+            if (fireballScrolls > 0 && currentEnemy && !currentEnemy.isBoss) {
+                playSound('cast');
+                fireballScrolls--;
+                handleEnemyDefeat();
+                updateUI();
+            }
+        }
+
+        function useArcaneOverload() {
+            if (comboMeter >= 100) {
+                playSound('overload');
+                comboMeter = 0;
+                let overloadDamage = 50 * (playerPerks.overloadMultiplier || 1);
+                currentEnemy.takeDamage(overloadDamage);
+                if (currentEnemy.currentHealth <= 0) {
+                    handleEnemyDefeat();
+                } else {
+                    startWordTimer(1.5);
+                }
+                updateUI();
+            }
+        }
+
+        function showHitText(text, className) {
+            const el = document.createElement('div');
+            el.className = `hit-text ${className}`;
+            el.textContent = text;
+            fxContainer.appendChild(el);
+            setTimeout(() => el.remove(), 1000);
+        }
+
+        function handlePlayerInput() {
+            if (!gameActive || !currentEnemy) return;
+            const typedValue = spellInput.value;
+            const targetWord = currentEnemy.getDisplayWord();
+            
+            if (typedValue.length > 0) {
+                if (typedValue.slice(-1) === targetWord[typedValue.length - 1]) {
+                    playSound('type');
+                } else {
+                    playSound('error');
+                    comboMeter = 0;
+                    updateUI();
+                    if (currentEnemy.ability === 'cursed' && !isCursed) {
+                        isCursed = true;
+                        typedOutputEl.classList.add('cursed-text');
+                        setTimeout(() => {
+                            isCursed = false;
+                            typedOutputEl.classList.remove('cursed-text');
+                        }, 2000);
+                    }
+                }
+            }
+
+            updateTypedOutput(typedValue);
+            if (typedValue === targetWord) {
+                const comboBonus = 10 * (playerPerks.comboMultiplier || 1);
+                comboMeter = Math.min(100, comboMeter + comboBonus);
+                castSpell();
+            }
+        }
+
+        function updateTypedOutput(typedValue) {
+            if (!currentEnemy) return;
+            let richText = '';
+            const targetWord = currentEnemy.getDisplayWord();
+            const wordClass = (currentEnemy.ability === 'armored' && currentEnemy.state.isArmored) ? 'feedback-armor' : 'feedback-correct';
+            
+            let elementColor = 'text-amber-200';
+            if (currentEnemy.wordElement === 'FIRE') elementColor = 'text-red-400';
+            else if (currentEnemy.wordElement === 'FROST') elementColor = 'text-blue-300';
+            else if (currentEnemy.wordElement === 'EARTH') elementColor = 'text-yellow-600';
+            else if (currentEnemy.wordElement === 'STORM') elementColor = 'text-purple-400';
+
+            for (let i = 0; i < targetWord.length; i++) {
+                if (i < typedValue.length) {
+                    richText += `<span class="${typedValue[i] === targetWord[i] ? wordClass : 'feedback-wrong'}">${targetWord[i]}</span>`;
+                } else {
+                    richText += `<span class="${elementColor}">${targetWord[i]}</span>`;
+                }
+            }
+            typedOutputEl.innerHTML = richText;
+        }
+
+        function showStageClear() {
+            gameActive = false;
+            clearInterval(wordTimerInterval);
+            
+            if (playerPerks.potionChance && Math.random() < playerPerks.potionChance) {
+                potions = Math.min(3, potions + 1);
+            }
+            if (playerPerks.scrollChance && Math.random() < playerPerks.scrollChance) {
+                if (Math.random() < 0.5) timeWarpScrolls++; else fireballScrolls++;
+            }
+
+            overlayTitle.textContent = "Stage Clear!";
+            overlayTitle.className = "text-5xl md:text-6xl font-magic text-shadow-title text-yellow-400";
+            overlayText.style.display = 'none';
+            finalScoreText.style.display = 'none';
+            tomeScreen.style.display = 'none';
+            athenaeumScreen.style.display = 'none';
+            perkSelection.style.display = 'block';
+            overlayButton.style.display = 'none';
+            
+            perkGrid.innerHTML = '';
+            const availablePerks = Object.values(PERK_CATALOG).filter(p => !playerPerks[p.id] || p.id === 'fortitude');
+            const chosenPerks = [];
+            while(chosenPerks.length < 3 && availablePerks.length > 0) {
+                const randIndex = Math.floor(Math.random() * availablePerks.length);
+                chosenPerks.push(availablePerks.splice(randIndex, 1)[0]);
+            }
+
+            chosenPerks.forEach(perk => {
+                const card = document.createElement('div');
+                card.className = 'perk-card p-4 rounded-lg';
+                card.innerHTML = `<h3 class="text-2xl font-magic text-amber-300">${perk.name}</h3><p class="mt-2 text-amber-100">${perk.description}</p>`;
+                card.onclick = () => selectPerk(perk);
+                perkGrid.appendChild(card);
+            });
+
+            overlay.style.display = 'flex';
+        }
+
+        function selectPerk(perk) {
+            perk.apply({ playerHealth, playerPerks });
+            if (perk.id === 'fortitude') playerHealth++;
+
+            currentStage++;
+            if (gameMode === 'quest' && !STAGE_CONFIG[currentStage]) {
+                showGameWon();
+            } else {
+                overlay.style.display = 'none';
+                perkSelection.style.display = 'none';
+                startStage();
+            }
+        }
+
+        function initGameUI() {
+            gameContainer.innerHTML = `
+            <div class="flex justify-between items-center text-center mb-4 border-b-4 border-amber-800 pb-4">
+                <div class="text-left"><div class="font-bold text-amber-400 text-lg">${gameMode === 'quest' ? 'Stage' : 'Wave'}</div><div id="stageName" class="text-xl"></div></div>
+                <h1 class="text-5xl font-magic text-shadow-title text-amber-300">Typo-mancer</h1>
+                <div class="text-right"><div class="font-bold text-yellow-400 text-lg">Score</div><div id="score" class="text-2xl">0</div></div>
+            </div>
+            <div id="gameScreen" class="relative min-h-[20rem] flex flex-col items-center justify-between p-4 mb-4">
+                <div id="enemy-container" class="text-center"><div id="enemy-avatar" class="w-24 h-24 mx-auto mb-2"></div><p id="enemyName" class="text-xl"></p><p id="enemyAbility" class="ability-text h-5"></p><p id="enemyWord" class="text-4xl md:text-5xl font-bold tracking-widest"></p><div class="w-full h-4 mt-2 max-w-md mx-auto rpg-bar"><div id="enemyHealthBar" class="bg-gradient-to-r from-red-700 to-red-500 h-full rounded-sm"></div></div></div>
+                <div class="w-full max-w-lg mt-4 grid grid-cols-5 gap-2 items-center">
+                    <div class="col-span-4 rpg-bar h-6"><div id="wordTimerBar" class="bg-gradient-to-r from-cyan-500 to-blue-500 h-full rounded-sm flex items-center justify-center text-sm font-bold">TIME</div></div>
+                    <div class="rpg-bar h-6"><div id="comboMeterBar" class="bg-gradient-to-r from-yellow-400 to-orange-500 h-full rounded-sm flex items-center justify-center text-sm font-bold"></div></div>
+                </div>
+                <div id="fx-container" class="absolute inset-0 z-10 pointer-events-none"></div>
+            </div>
+            <div class="border-t-4 border-amber-800 pt-4">
+                <div class="text-center"><p id="typed-output" class="text-2xl md:text-3xl h-10 mb-2 font-mono text-amber-200"></p><input type="text" id="spellInput" class="w-full max-w-lg text-center rounded-lg p-3 text-2xl md:text-3xl text-white focus:outline-none transition" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"></div>
+                <div class="flex justify-around items-center mt-6 text-xl p-4 bg-black bg-opacity-20 rounded-md">
+                    <div class="text-center"><div class="font-bold text-red-400">Health</div><div id="playerHealth" class="text-2xl"></div></div>
+                    <div class="text-center"><div class="font-bold text-green-400">Enemies</div><div id="enemiesRemaining" class="text-2xl">0</div></div>
+                    <div class="text-center"><div class="font-bold text-purple-400">Time Warp (<span class="font-mono">1</span>)</div><div id="timeWarp" class="text-2xl">0</div></div>
+                    <div class="text-center"><div class="font-bold text-orange-400">Fireball (<span class="font-mono">2</span>)</div><div id="fireball" class="text-2xl">0</div></div>
+                    <div class="text-center"><div class="font-bold text-blue-400">Potions (<span class="font-mono">3</span>)</div><div id="potions" class="text-2xl">0</div></div>
+                </div>
+            </div>`;
+            spellInput = document.getElementById('spellInput');
+            enemyWordEl = document.getElementById('enemyWord');
+            enemyNameEl = document.getElementById('enemyName');
+            enemyAbilityEl = document.getElementById('enemyAbility');
+            enemyHealthBar = document.getElementById('enemyHealthBar');
+            enemyAvatarEl = document.getElementById('enemy-avatar');
+            playerHealthEl = document.getElementById('playerHealth');
+            scoreEl = document.getElementById('score');
+            potionsEl = document.getElementById('potions');
+            timeWarpEl = document.getElementById('timeWarp');
+            fireballEl = document.getElementById('fireball');
+            comboMeterBar = document.getElementById('comboMeterBar');
+            typedOutputEl = document.getElementById('typed-output');
+            fxContainer = document.getElementById('fx-container');
+            enemyContainer = document.getElementById('enemy-container');
+            wordTimerBar = document.getElementById('wordTimerBar');
+            stageNameEl = document.getElementById('stageName');
+            enemiesRemainingEl = document.getElementById('enemiesRemaining');
+            spellInput.addEventListener('input', handlePlayerInput);
+            document.addEventListener('keydown', (e) => {
+                if (!gameActive) return;
+                if (e.key === '1') useTimeWarp();
+                if (e.key === '2') useFireball();
+                if (e.key === '3' || e.key.toLowerCase() === 'h') usePotion();
+                if (e.code === 'Space') {
+                    e.preventDefault();
+                    useArcaneOverload();
+                }
+            });
+        }
+
+        function loadData() {
+            highScore = parseInt(localStorage.getItem('typoMancerHighScore') || '0');
+            highestWave = parseInt(localStorage.getItem('typoMancerHighestWave') || '0');
+            arcaneEssence = parseInt(localStorage.getItem('typoMancerEssence') || '0');
+            const defeatedData = localStorage.getItem('typoMancerDefeated');
+            defeatedEnemies = defeatedData ? new Set(JSON.parse(defeatedData)) : new Set();
+            const upgradesData = localStorage.getItem('typoMancerUpgrades');
+            permanentUpgrades = upgradesData ? JSON.parse(upgradesData) : {};
+            const questCompleted = localStorage.getItem('typoMancerQuestCompleted') === 'true';
+            if (questCompleted) {
+                endlessButton.classList.remove('hidden');
+            }
+        }
+
+        function saveData() {
+            localStorage.setItem('typoMancerHighScore', highScore);
+            localStorage.setItem('typoMancerHighestWave', highestWave);
+            localStorage.setItem('typoMancerEssence', arcaneEssence);
+            localStorage.setItem('typoMancerUpgrades', JSON.stringify(permanentUpgrades));
+        }
+
+        function init() {
+            mainMenu.style.display = 'block';
+            gameContainer.style.display = 'none';
+            overlay.style.display = 'none';
+            loadData();
+            highScoreDisplay.textContent = highScore;
+            highestWaveDisplay.textContent = highestWave;
+            essenceDisplay.textContent = arcaneEssence + ' ✨';
+
+            const startQuest = async () => {
+                await Tone.start();
+                setupAudio();
+                mainMenu.style.display = 'none';
+                initGameUI();
+                gameContainer.style.display = 'block';
+                gameMode = 'quest';
+                playerHealth = 3 + (permanentUpgrades.startingHealth || 0);
+                potions = 1 + (permanentUpgrades.startingPotion || 0);
+                timeWarpScrolls = 0;
+                fireballScrolls = 0;
+                comboMeter = 0;
+                score = 0;
+                currentStage = 1;
+                playerPerks = {};
+                startStage();
+            };
+
+            const startEndless = async () => {
+                await Tone.start();
+                setupAudio();
+                mainMenu.style.display = 'none';
+                initGameUI();
+                gameContainer.style.display = 'block';
+                gameMode = 'endless';
+                playerHealth = 3 + (permanentUpgrades.startingHealth || 0);
+                potions = 1 + (permanentUpgrades.startingPotion || 0);
+                timeWarpScrolls = 0;
+                fireballScrolls = 0;
+                comboMeter = 0;
+                score = 0;
+                currentStage = 1; // Represents wave number
+                playerPerks = {};
+                startStage();
+            };
+
+            startGameButton.onclick = startQuest;
+            endlessButton.onclick = startEndless;
+            tomeButton.onclick = showTome;
+            athenaeumButton.onclick = showAthenaeum;
+        }
+        
+        function showTome() {
+            overlayTitle.textContent = "Tome of Knowledge";
+            overlayTitle.className = "text-5xl md:text-6xl font-magic text-shadow-title text-amber-300";
+            overlayText.style.display = 'none';
+            finalScoreText.style.display = 'none';
+            perkSelection.style.display = 'none';
+            athenaeumScreen.style.display = 'none';
+            tomeScreen.style.display = 'block';
+            overlayButton.textContent = "Close";
+            overlayButton.style.display = 'block';
+            overlay.style.display = 'flex';
+            overlayButton.onclick = () => { overlay.style.display = 'none'; };
+
+            tomeGrid.innerHTML = '';
+            Object.values(ENEMY_CATALOG).forEach(enemy => {
+                const entry = document.createElement('div');
+                entry.className = 'tome-entry p-2 rounded-lg text-center';
+                if (defeatedEnemies.has(enemy.id)) {
+                    entry.innerHTML = `<div class="w-20 h-20 mx-auto ${enemy.isBoss ? 'text-purple-400' : 'text-green-300'}">${enemy.svg}</div><p class="mt-2 text-amber-200">${enemy.name}</p>`;
+                } else {
+                    entry.innerHTML = `<div class="w-20 h-20 mx-auto text-gray-700 flex items-center justify-center font-magic text-5xl">?</div><p class="mt-2 text-gray-500">Undiscovered</p>`;
+                }
+                tomeGrid.appendChild(entry);
+            });
+        }
+
+        function showAthenaeum() {
+            overlayTitle.textContent = "The Athenaeum";
+            overlayTitle.className = "text-5xl md:text-6xl font-magic text-shadow-title text-amber-300";
+            overlayText.innerHTML = `Available Essence: <span class="text-yellow-300">${arcaneEssence} ✨</span>`;
+            overlayText.style.display = 'block';
+            finalScoreText.style.display = 'none';
+            perkSelection.style.display = 'none';
+            tomeScreen.style.display = 'none';
+            athenaeumScreen.style.display = 'block';
+            overlayButton.textContent = "Close";
+            overlayButton.style.display = 'block';
+            overlay.style.display = 'flex';
+            overlayButton.onclick = () => { overlay.style.display = 'none'; };
+
+            athenaeumGrid.innerHTML = '';
+            Object.values(PERMANENT_UPGRADES).forEach(upgrade => {
+                const currentLevel = permanentUpgrades[upgrade.id] || 0;
+                const cost = upgrade.cost(currentLevel);
+                const isMaxed = currentLevel >= upgrade.maxLevel;
+
+                const card = document.createElement('div');
+                card.className = `skill-card p-4 rounded-lg ${isMaxed ? 'maxed' : ''}`;
+                card.innerHTML = `
+                    <h3 class="text-2xl font-magic text-amber-300">${upgrade.name}</h3>
+                    <p class="mt-2 text-amber-100 h-12">${upgrade.description}</p>
+                    <p class="mt-2 text-gray-300">Level: ${currentLevel} / ${upgrade.maxLevel}</p>
+                    <p class="mt-2 text-yellow-300 font-bold">${isMaxed ? 'MAXED' : `Cost: ${cost} ✨`}</p>
+                `;
+                if (!isMaxed) {
+                    card.onclick = () => purchaseUpgrade(upgrade.id, cost);
+                }
+                athenaeumGrid.appendChild(card);
+            });
+        }
+
+        function purchaseUpgrade(upgradeId, cost) {
+            if (arcaneEssence >= cost) {
+                arcaneEssence -= cost;
+                permanentUpgrades[upgradeId] = (permanentUpgrades[upgradeId] || 0) + 1;
+                saveData();
+                essenceDisplay.textContent = arcaneEssence + ' ✨';
+                showAthenaeum(); // Refresh the view
+            }
+        }
+
+        function showGameOver() {
+            gameActive = false;
+            clearInterval(wordTimerInterval);
+
+            const essenceGained = Math.floor(score / 10 * (1 + (permanentUpgrades.essenceCollector || 0) * 0.1));
+            arcaneEssence += essenceGained;
+            
+            if (gameMode === 'quest' && score > highScore) {
+                highScore = score;
+            } else if (gameMode === 'endless' && currentStage > highestWave) {
+                highestWave = currentStage;
+            }
+            saveData();
+
+            overlayTitle.textContent = "Game Over";
+            overlayTitle.className = "text-5xl md:text-6xl font-magic text-shadow-title text-red-500";
+            overlayText.textContent = `Your final score is ${score}.`;
+            finalScoreText.innerHTML = `High Score: ${highScore} | Highest Wave: ${highestWave}<br>You earned <span class="text-yellow-300">${essenceGained} ✨</span> Arcane Essence.`;
+            overlayText.style.display = 'block';
+            finalScoreText.style.display = 'block';
+            perkSelection.style.display = 'none';
+            tomeScreen.style.display = 'none';
+            athenaeumScreen.style.display = 'none';
+            overlayButton.textContent = "Main Menu";
+            overlayButton.style.display = 'block';
+            overlay.style.display = 'flex';
+            overlayButton.onclick = init;
+        }
+        
+        function showGameWon() {
+            gameActive = false;
+            clearInterval(wordTimerInterval);
+
+            localStorage.setItem('typoMancerQuestCompleted', 'true');
+            const essenceGained = Math.floor(score / 5 * (1 + (permanentUpgrades.essenceCollector || 0) * 0.1)); // Bonus for winning
+            arcaneEssence += essenceGained;
+
+            if (score > highScore) {
+                highScore = score;
+            }
+            saveData();
+
+            overlayTitle.textContent = "You are Victorious!";
+            overlayTitle.className = "text-5xl md:text-6xl font-magic text-shadow-title text-green-400";
+            overlayText.textContent = `You have defeated all foes! Final Score: ${score}.`;
+            finalScoreText.innerHTML = `High Score: ${highScore}<br>You earned <span class="text-yellow-300">${essenceGained} ✨</span> Arcane Essence.`;
+            overlayText.style.display = 'block';
+            finalScoreText.style.display = 'block';
+            perkSelection.style.display = 'none';
+            tomeScreen.style.display = 'none';
+            athenaeumScreen.style.display = 'none';
+            overlayButton.textContent = "Main Menu";
+            overlayButton.style.display = 'block';
+            overlay.style.display = 'flex';
+            overlayButton.onclick = init;
+        }
+
+        function updateUI() {
+            if (scoreEl) scoreEl.textContent = score;
+            if (playerHealthEl) playerHealthEl.textContent = '❤️'.repeat(Math.max(0, playerHealth));
+            if (potionsEl) potionsEl.textContent = potions;
+            if (timeWarpEl) timeWarpEl.textContent = timeWarpScrolls;
+            if (fireballEl) fireballEl.textContent = fireballScrolls;
+            if (comboMeterBar) {
+                comboMeterBar.style.width = `${comboMeter}%`;
+                comboMeterBar.textContent = comboMeter >= 100 ? 'OVERLOAD!' : '';
+                if (comboMeter >= 100) comboMeterBar.classList.add('full');
+                else comboMeterBar.classList.remove('full');
+            }
+            if (gameMode === 'quest' && STAGE_CONFIG[currentStage]) {
+                const remaining = STAGE_CONFIG[currentStage].enemiesToDefeat - enemiesDefeatedInStage;
+                if (enemiesRemainingEl) enemiesRemainingEl.textContent = remaining;
+            } else if (gameMode === 'endless') {
+                if (enemiesRemainingEl) enemiesRemainingEl.textContent = '∞';
+            }
+            if (currentEnemy && enemyAbilityEl) {
+                if (currentEnemy.ability === 'armored' && currentEnemy.state.isArmored) {
+                    enemyAbilityEl.textContent = 'ARMORED';
+                } else if (currentEnemy.ability === 'regenerating') {
+                    enemyAbilityEl.textContent = 'REGENERATING';
+                } else if (currentEnemy.ability === 'cursed') {
+                    enemyAbilityEl.textContent = 'CURSED';
+                } else {
+                    enemyAbilityEl.textContent = '';
+                }
+            }
+             if (currentEnemy && enemyWordEl) {
+                enemyWordEl.textContent = currentEnemy.getDisplayWord();
+            }
+        }
+
+        function startStage() {
+            gameActive = true;
+            enemiesDefeatedInStage = 0;
+            const stageName = gameMode === 'quest' ? STAGE_CONFIG[currentStage].name : `Wave ${currentStage}`;
+            stageNameEl.textContent = stageName;
+            spellInput.disabled = false;
+            spellInput.focus();
+            spawnNewEnemy();
+        }
+
+        function createParticles(element = 'PHYSICAL') {
+            const inputRect = spellInput.getBoundingClientRect();
+            const containerRect = gameContainer.getBoundingClientRect();
+            const startX = inputRect.left - containerRect.left + inputRect.width / 2;
+            const startY = inputRect.top - containerRect.top;
+            
+            let hueStart = 25, hueEnd = 55; // Physical
+            if (element === 'FIRE') { hueStart = 0; hueEnd = 20; }
+            else if (element === 'FROST') { hueStart = 180; hueEnd = 210; }
+            else if (element === 'STORM') { hueStart = 260; hueEnd = 290; }
+            else if (element === 'EARTH') { hueStart = 30; hueEnd = 45; }
+
+            for (let i = 0; i < 20; i++) {
+                const p = document.createElement('div');
+                p.classList.add('particle');
+                const angle = Math.random() * Math.PI * 2;
+                const radius = Math.random() * (inputRect.width / 2);
+                p.style.setProperty('--tx', `${Math.cos(angle) * radius}px`);
+                p.style.setProperty('--ty', `${Math.sin(angle) * radius}px`);
+                p.style.setProperty('--color', `hsl(${Math.random() * (hueEnd - hueStart) + hueStart}, 90%, 70%)`);
+                p.style.width = `${Math.random() * 8 + 3}px`;
+                p.style.height = `${Math.random() * 3 + 1}px`;
+                p.style.left = `${startX}px`;
+                p.style.top = `${startY}px`;
+                fxContainer.appendChild(p);
+                setTimeout(() => p.remove(), 800);
+            }
+        }
+        
+        init();
+    </script>
+</body>
+</html>
